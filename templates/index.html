@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+
+{% block title %}Subjects Dashboard{% endblock %}
+
+{% block content %}
+<div class="px-4 sm:px-6 lg:px-8">
+    <div class="sm:flex sm:items-center">
+        <div class="sm:flex-auto">
+            <h1 class="text-2xl font-bold leading-6 text-gray-900">Subjects</h1>
+            <p class="mt-2 text-sm text-gray-700">A list of all subjects in the database. Click on a subject to view its questions and answers.</p>
+        </div>
+    </div>
+    <div class="mt-8 flow-root">
+        <div class="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
+            <div class="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
+                <div class="overflow-hidden shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg">
+                    <ul role="list" class="divide-y divide-gray-200">
+                        {% for subject in subjects %}
+                        <li>
+                            <a href="{{ url_for('subject_detail', subject_id=subject.id) }}" class="block hover:bg-gray-50">
+                                <div class="px-4 py-4 sm:px-6">
+                                    <p class="text-lg font-medium text-indigo-600 truncate">{{ subject.subject_name }}</p>
+                                </div>
+                            </a>
+                        </li>
+                        {% else %}
+                        <li>
+                            <div class="px-4 py-4 sm:px-6">
+                                <p class="text-sm text-gray-500">No subjects found in the database.</p>
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
