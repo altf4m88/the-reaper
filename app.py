@@ -1,10 +1,11 @@
 import os
 import uuid
-from flask import Flask, render_template, abort
+from flask import Flask, render_template, abort, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import Uuid, Float, Integer, Text, String, Boolean, ForeignKey
 from sqlalchemy.orm import relationship, joinedload
 from dotenv import load_dotenv
+import requests
 
 # --- App and Database Configuration ---
 
@@ -141,7 +142,7 @@ def request_logs():
     including token usage and estimated costs.
     """
     try:
-        # Build the aggregation query using SQLAlchemy's core functions
+        # Build the aggregation query for the per-subject breakdown
         log_summary_query = db.session.query(
             Subject.subject_name.label('subject_name'),
             db.func.sum(RequestLog.request_time).label('total_request_time'),
@@ -152,8 +153,12 @@ def request_logs():
 
         log_summary = log_summary_query.all()
 
-        # Process results to add cost calculations
+        # Process results for the table and calculate grand totals
         processed_summary = []
+        grand_total_tokens = 0
+        grand_total_cost = 0.0
+        grand_total_time = 0.0
+
         for row in log_summary:
             input_cost = (row.prompt_tokens / 1_000_000) * INPUT_PRICE_PER_MILLION_TOKENS
             output_cost = (row.candidates_tokens / 1_000_000) * OUTPUT_PRICE_PER_MILLION_TOKENS
@@ -166,11 +171,40 @@ def request_logs():
                 'output_cost': output_cost,
                 'total_cost': total_cost
             })
+            # Aggregate grand totals
+            grand_total_tokens += row.total_tokens
+            grand_total_cost += total_cost
+            grand_total_time += row.total_request_time
 
-        return render_template('request_logs.html', summary=processed_summary)
+        # Calculate overall averages
+        total_request_count = db.session.query(db.func.count(RequestLog.id)).scalar()
+        average_inference_time = grand_total_time / total_request_count if total_request_count > 0 else 0
+
+        return render_template(
+            'request_logs.html',
+            summary=processed_summary,
+            grand_total_tokens=grand_total_tokens,
+            grand_total_cost=grand_total_cost,
+            average_inference_time=average_inference_time
+        )
     except Exception as e:
         print(f"Error fetching request logs: {e}")
         abort(500, description="Could not fetch request log summary.")
+
+EVALUATOR_URL = os.getenv("EVALUATOR_URL", "http://localhost:8000")
+
+@app.route('/api/subject/<uuid:subject_id>/evaluate', methods=['POST'])
+def trigger_subject_evaluation(subject_id):
+    """
+    Forwards the evaluation request to the backend FastAPI service for a single subject.
+    """
+    try:
+        url = f"{EVALUATOR_URL}/evaluate/subject/{subject_id}"
+        resp = requests.post(url, headers={"accept": "application/json"})
+        return (resp.text, resp.status_code, resp.headers.items())
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 if __name__ == '__main__':
     app.run(debug=True)
