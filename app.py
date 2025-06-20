@@ -148,7 +148,8 @@ def request_logs():
             db.func.sum(RequestLog.request_time).label('total_request_time'),
             db.func.sum(RequestLog.total_token_count).label('total_tokens'),
             db.func.sum(RequestLog.prompt_token_count).label('prompt_tokens'),
-            db.func.sum(RequestLog.candidates_token_count).label('candidates_tokens')
+            db.func.sum(RequestLog.candidates_token_count).label('candidates_tokens'),
+            db.func.count(RequestLog.id).label('request_count')
         ).select_from(RequestLog).join(RequestLog.question).join(Question.subject).group_by(Subject.subject_name)
 
         log_summary = log_summary_query.all()
@@ -169,7 +170,8 @@ def request_logs():
                 'total_tokens': row.total_tokens,
                 'input_cost': input_cost,
                 'output_cost': output_cost,
-                'total_cost': total_cost
+                'total_cost': total_cost,
+                'request_count': row.request_count
             })
             # Aggregate grand totals
             grand_total_tokens += row.total_tokens
