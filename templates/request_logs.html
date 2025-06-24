@@ -42,6 +42,7 @@
                                 <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Output Cost (USD)</th>
                                 <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Total Cost (USD)</th>
                                 <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Avg. Inference Time / Request (s)</th>
+                                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Accuracy (%)</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-200 bg-white">
@@ -54,10 +55,11 @@
                                 <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">${{ "%.6f"|format(item.output_cost) }}</td>
                                 <td class="whitespace-nowrap px-3 py-4 text-sm font-semibold text-gray-900">${{ "%.6f"|format(item.total_cost) }}</td>
                                 <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{{ "%.2f"|format(item.time / item.request_count if item.request_count else 0) }}</td>
+                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{% if item.accuracy is not none %}{{ "%.2f"|format(item.accuracy) }}{% else %}-{% endif %}</td>
                             </tr>
                             {% else %}
                             <tr>
-                                <td colspan="7" class="px-3 py-4 text-center text-sm text-gray-500">No request logs found.</td>
+                                <td colspan="8" class="px-3 py-4 text-center text-sm text-gray-500">No request logs found.</td>
                             </tr>
                             {% endfor %}
                         </tbody>

@@ -142,7 +142,7 @@ def request_logs():
     including token usage and estimated costs.
     """
     try:
-        # Build the aggregation query for the per-subject breakdown
+        # 1. Aggregate per-subject request log stats (no join to TaskAnswer)
         log_summary_query = db.session.query(
             Subject.subject_name.label('subject_name'),
             db.func.sum(RequestLog.request_time).label('total_request_time'),
@@ -150,9 +150,23 @@ def request_logs():
             db.func.sum(RequestLog.prompt_token_count).label('prompt_tokens'),
             db.func.sum(RequestLog.candidates_token_count).label('candidates_tokens'),
             db.func.count(RequestLog.id).label('request_count')
-        ).select_from(RequestLog).join(RequestLog.question).join(Question.subject).group_by(Subject.subject_name)
+        ).select_from(RequestLog) \
+        .join(RequestLog.question) \
+        .join(Question.subject) \
+        .group_by(Subject.subject_name)
 
         log_summary = log_summary_query.all()
+
+        # 2. Aggregate accuracy per subject from TaskAnswer
+        accuracy_query = db.session.query(
+            Subject.subject_name.label('subject_name'),
+            db.func.sum(db.case((TaskAnswer.status == TaskAnswer.ground_truth, 1), else_=0)).label('correct_count'),
+            db.func.count(TaskAnswer.id).label('evaluated_count')
+        ).select_from(TaskAnswer) \
+        .join(TaskAnswer.subject) \
+        .group_by(Subject.subject_name)
+
+        accuracy_map = {row.subject_name: (row.correct_count, row.evaluated_count) for row in accuracy_query}
 
         # Process results for the table and calculate grand totals
         processed_summary = []
@@ -164,6 +178,8 @@ def request_logs():
             input_cost = (row.prompt_tokens / 1_000_000) * INPUT_PRICE_PER_MILLION_TOKENS
             output_cost = (row.candidates_tokens / 1_000_000) * OUTPUT_PRICE_PER_MILLION_TOKENS
             total_cost = input_cost + output_cost
+            correct_count, evaluated_count = accuracy_map.get(row.subject_name, (0, 0))
+            accuracy = (correct_count / evaluated_count * 100) if evaluated_count else None
             processed_summary.append({
                 'name': row.subject_name,
                 'time': row.total_request_time,
@@ -171,7 +187,8 @@ def request_logs():
                 'input_cost': input_cost,
                 'output_cost': output_cost,
                 'total_cost': total_cost,
-                'request_count': row.request_count
+                'request_count': row.request_count,
+                'accuracy': accuracy
             })
             # Aggregate grand totals
             grand_total_tokens += row.total_tokens
